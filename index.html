@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>PNW Wind Map — OR · WA · ID · MT · BC (HRDPS 2.5 km)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<style>
+  :root{--ink:#1b2430;--muted:#667085;--bg:#f5f7fa;--line:#e3e8ef;
+        --base-filter:contrast(1.35) brightness(0.94) saturate(1.18)}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+       margin:0;background:var(--bg);color:var(--ink);line-height:1.45}
+  header{background:#2d6a4f;color:#fff;padding:16px 22px}
+  header h1{margin:0;font-size:20px} header p{margin:4px 0 0;font-size:13px;opacity:.92}
+  main{max-width:1060px;margin:0 auto;padding:18px}
+  .bar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+  .fld{display:flex;flex-direction:column;gap:3px}
+  .fld label{font-size:12px;color:var(--muted);font-weight:600}
+  select{font:inherit;border:1px solid #d7dde6;border-radius:8px;padding:9px 10px}
+  button{font:inherit;border:1px solid var(--line);background:#fff;color:var(--ink);
+         border-radius:8px;padding:6px 10px;cursor:pointer}
+  header,button,select,label,.bar,.oprow{touch-action:manipulation}
+  .oprow{display:flex;align-items:center;gap:6px}
+  #opDown,#opUp{display:none}
+  #arrowsTgl{display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
+  #arrowsTgl[aria-pressed="false"]{color:var(--muted);background:#eef1f5}
+  .timewrap{display:flex;flex-direction:column;gap:4px;flex:1 1 320px;min-width:260px}
+  .timewrap .row{display:flex;align-items:center;gap:8px}
+  #time{flex:1} #timeLabel{font-weight:700;font-size:13px;min-width:150px}
+  #stepBack,#stepFwd{display:none}
+  #map{height:640px;border:1px solid var(--line);border-radius:12px;position:relative}
+  .ovl{position:absolute;top:0;left:0;pointer-events:none}
+  .leaflet-layer.baseTiles{filter:var(--base-filter)}
+  .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;align-items:center}
+  .lchip{display:flex;align-items:center;gap:6px;font-size:11px;border:1px solid var(--line);
+         border-radius:6px;padding:3px 7px;background:#fff}
+  .lsw{width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.15)}
+  .status{font-size:13px;color:var(--muted);margin-top:10px} .status.err{color:#b54708}
+  .note{font-size:12px;color:var(--muted);margin-top:10px}
+  #tip{position:fixed;z-index:9999;pointer-events:none;display:none;max-width:250px;
+       background:rgba(17,24,32,.94);color:#fff;font-size:12px;line-height:1.5;
+       padding:8px 10px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+  #tip b{color:#fff} #tip .k{color:#9fb3c8}
+  #tip.pinned{position:fixed;left:8px;right:8px;bottom:8px;max-width:none;pointer-events:auto;
+       max-height:62vh;overflow-y:auto;padding-top:12px}
+  #tip .tipClose{display:none}
+  #tip.pinned .tipClose{display:flex;align-items:center;justify-content:center;position:absolute;
+       top:2px;right:2px;width:44px;height:44px;z-index:1;background:rgba(17,24,32,.55);border:none;
+       border-radius:8px;color:#cdd8e4;font-size:18px;line-height:1;cursor:pointer}
+  #legendBtn{display:none}
+  .marker-tip{background:#fff;color:#222;font-weight:700;font-size:13px;border:1px solid #d62828;
+    padding:2px 7px;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .marker-tip::before{border-right-color:#d62828}
+  .fire-popup b{color:#d62828}
+  .fire-popup td{padding:1px 6px;font-size:12px;white-space:nowrap}
+  .fire-popup td:first-child{font-weight:600;color:#666}
+
+  @media(max-width:640px){
+    body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
+    header{padding:7px 12px;flex:0 0 auto}
+    header h1{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    header p{display:none}
+    main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow-y:auto;
+         padding:8px;max-width:none;width:100%}
+    .bar{flex:0 0 auto;gap:6px 8px;margin-bottom:6px}
+    .fld{flex:1 1 45%;min-width:0;gap:2px}
+    .fld label{font-size:11px}
+    .fld select{width:100%;min-height:44px;padding:6px 8px}
+    #opFld{flex:1 1 100%}
+    .oprow{width:100%;gap:8px}
+    #opDown,#opUp{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+         min-width:44px;min-height:44px;padding:0;font-size:20px;font-weight:700;line-height:1}
+    #arrowsTgl{min-width:44px;min-height:44px;padding:0 8px;font-size:13px;font-weight:700}
+    #arrowsFld{display:none}
+    .timewrap{flex:1 1 100%;min-width:0}
+    #time{height:44px}
+    #playBtn{display:none}
+    #stepBack,#stepFwd{display:inline-block;min-width:48px;min-height:44px}
+    #timeLabel{min-width:0;font-size:12px}
+    #time,#opacity{-webkit-appearance:none;appearance:none;background:transparent}
+    #time::-webkit-slider-runnable-track,#opacity::-webkit-slider-runnable-track{height:5px;background:#c7d2de;border-radius:3px}
+    #time::-moz-range-track,#opacity::-moz-range-track{height:5px;background:#c7d2de;border-radius:3px}
+    #time::-webkit-slider-thumb,#opacity::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+        width:26px;height:26px;border-radius:50%;background:#2d6a4f;border:2px solid #fff;
+        box-shadow:0 1px 3px rgba(0,0,0,.3);margin-top:-11px}
+    #time::-moz-range-thumb,#opacity::-moz-range-thumb{width:26px;height:26px;border-radius:50%;
+        background:#2d6a4f;border:2px solid #fff}
+    #map{flex:1 1 240px;height:auto;min-height:180px;border-radius:8px}
+    .status{flex:0 0 auto;margin:4px 0 0;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .note{display:none}
+    #map .legend{position:fixed;left:8px;right:8px;bottom:8px;z-index:1100;margin:0;display:none;
+         background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:10px;
+         padding:8px 56px 8px 8px;max-height:50vh;max-height:50dvh;overflow:auto;
+         box-shadow:0 2px 10px rgba(0,0,0,.2)}
+    #map .legend.open{display:flex}
+    #legendBtn{display:block;position:absolute;right:8px;bottom:8px;z-index:1101;min-width:44px;min-height:44px;
+         font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+    #legendBtn.open{position:fixed;right:16px;bottom:16px;z-index:1102}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PNW &amp; Rockies Wind</h1>
+  <p>HRDPS 2.5 km 10 m wind (ECCC) · Beaufort scale in <b>mph</b> · hover or tap for a readout</p>
+</header>
+<main>
+  <div class="bar">
+    <div class="fld" id="opFld"><label for="opacity">Fill opacity <span id="opacityVal"></span></label>
+      <div class="oprow">
+        <button id="opDown" type="button" title="Less fill opacity">−</button>
+        <input type="range" id="opacity" min="0" max="1" step="0.01" value="0.72">
+        <button id="opUp" type="button" title="More fill opacity">+</button>
+        <button id="arrowsTgl" type="button" aria-pressed="true">➤ On</button>
+        <button id="markerTgl" type="button" aria-pressed="true">Byrds</button>
+        <button id="fireTgl" type="button" aria-pressed="true" style="background:#d62828;color:#fff">🔥 Fires</button>
+      </div></div>
+    <div class="fld" id="arrowsFld"><label for="arrows">Arrows</label>
+      <select id="arrows"><option value="0">Off</option><option value="26">Normal</option><option value="18">Dense</option><option value="10" selected>Max</option></select></div>
+    <div class="timewrap"><label for="time" id="timeCap">Forecast timeline</label>
+      <div class="row"><button id="playBtn">▶</button><button id="stepBack" title="Back one hour">◀</button><button id="stepFwd" title="Forward one hour">▶</button><input type="range" id="time" min="0" max="47" value="0"><span id="timeLabel">—</span></div>
+    </div>
+  </div>
+  <div class="legend" id="legend"></div>
+  <div id="map"></div>
+  <p class="status" id="status">Loading…</p>
+  <p class="note" id="note"></p>
+</main>
+<div id="tip"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+const R2="https://pub-cb8eb71f75d64a57a0d021318ccd0ae7.r2.dev";
+const $=id=>document.getElementById(id);
+
+const W_EDGES=[1,6,12,20,29,39,50,62,75,89,103,118];
+const W_COL=["#dfeaf2","#bfe3ec","#a6dd9f","#d7e84f","#f3c44d","#f0893b","#e44f2c","#c71d2b","#9a2240","#6b2a5a","#4a2370","#2c1a55","#14102e"];
+const W_NAMES=["Calm","Light air","Light breeze","Gentle","Moderate","Fresh","Strong","Near gale","Gale","Strong gale","Storm","Violent storm","Hurricane"];
+const toMph=kmh=>kmh*0.621371;
+const mph=kmh=>Math.round(toMph(kmh));
+const beauF=kmh=>{ let f=0; while(f<W_EDGES.length && kmh>=W_EDGES[f]) f++; return f; };
+const hex2rgb=h=>[parseInt(h.slice(1,3),16)/255,parseInt(h.slice(3,5),16)/255,parseInt(h.slice(5,7),16)/255];
+const COMPASS=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+const compass=d=>COMPASS[Math.round(((d%360)+360)%360/22.5)%16];
+
+const FULL_EXTENT=[[42,-130],[53,-104]];
+const DEFAULT_CENTER=[48.6631,-118.5660], DEFAULT_ZOOM=8;
+const PTL=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Vancouver',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+const DRY=-1000, Z0=12;
+let hour=0, TIMES=[], windTile=null, anim=null;
+
+const map=L.map("map",{zoomAnimation:false,fadeAnimation:false,
+  maxBounds:L.latLngBounds([[41.5,-130.0],[53.0,-103.0]]),maxBoundsViscosity:1.0});
+L.tileLayer("https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
+  {maxZoom:16,attribution:"USGS",className:"baseTiles",crossOrigin:true}).addTo(map);
+
+const URL_P=(()=>{const q=new URLSearchParams(location.search);
+  const lat=parseFloat(q.get("lat")),lon=parseFloat(q.get("lon")),z=parseInt(q.get("z"),10);
+  return{view:(isFinite(lat)&&isFinite(lon)&&isFinite(z))?{lat,lon,z}:null,h:parseInt(q.get("h"),10)};})();
+
+function fitExtent(){map.setMinZoom(0);map.invalidateSize();
+  const v=URL_P.view;
+  if(v){map.setView([v.lat,v.lon],Math.max(v.z,5),{animate:false});}
+  else{map.setView(DEFAULT_CENTER,DEFAULT_ZOOM,{animate:false});}
+  map.setMinZoom(Math.min(map.getZoom(),5));}
+fitExtent();
+const fitOK=()=>map.getSize().x>=80&&map.getZoom()>=1&&map.getMinZoom()>=1;
+requestAnimationFrame(()=>{if(!fitOK())fitExtent();});
+addEventListener("load",()=>{if(!fitOK())fitExtent();});
+
+map.createPane("fields");map.getPane("fields").style.zIndex=450;map.getPane("fields").style.pointerEvents="none";
+const cont=map.getPane("fields");
+const glc=document.createElement("canvas");glc.className="ovl";cont.appendChild(glc);
+const arc=document.createElement("canvas");arc.className="ovl";cont.appendChild(arc);
+function syncOverlayPos(){const tl=map.containerPointToLayerPoint([0,0]);L.DomUtil.setPosition(glc,tl);L.DomUtil.setPosition(arc,tl);}
+
+const CRS=L.CRS.EPSG3857;
+const VS=`attribute vec2 aPos;attribute float aSpeed;uniform vec2 uTopLeft;uniform float uScale;uniform vec2 uSize;varying float vSpeed;
+void main(){vec2 c=(aPos-uTopLeft)*uScale;gl_Position=vec4(c.x/uSize.x*2.0-1.0,1.0-c.y/uSize.y*2.0,0.0,1.0);vSpeed=aSpeed;}`;
+const FS=`precision mediump float;varying float vSpeed;uniform vec3 uCols[13];uniform float uEdges[12];uniform float uAlpha;uniform float uMinDraw;
+void main(){if(vSpeed<uMinDraw)discard;int bin=0;for(int i=0;i<12;i++){if(vSpeed>=uEdges[i])bin=i+1;}
+  vec3 c=uCols[12];for(int i=0;i<13;i++){if(i==bin)c=uCols[i];}
+  gl_FragColor=vec4(c,uAlpha);}`;
+let gl=null,prog=null,loc={};
+
+function initGL(){
+  gl=glc.getContext("webgl",{alpha:true,antialias:true})||glc.getContext("webgl2",{alpha:true,antialias:true});
+  if(!gl){setStatus("WebGL unavailable.",true);return false;}
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+    if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(o);return o;};
+  prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw gl.getProgramInfoLog(prog);
+  gl.useProgram(prog);
+  loc.aPos=gl.getAttribLocation(prog,"aPos");loc.aSpeed=gl.getAttribLocation(prog,"aSpeed");
+  loc.uTopLeft=gl.getUniformLocation(prog,"uTopLeft");loc.uScale=gl.getUniformLocation(prog,"uScale");
+  loc.uSize=gl.getUniformLocation(prog,"uSize");loc.uCols=gl.getUniformLocation(prog,"uCols");
+  loc.uEdges=gl.getUniformLocation(prog,"uEdges");loc.uAlpha=gl.getUniformLocation(prog,"uAlpha");
+  loc.uMinDraw=gl.getUniformLocation(prog,"uMinDraw");
+  gl.enable(gl.BLEND);
+  gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+  gl.clearColor(0,0,0,0);
+  pushRamp();return true;
+}
+function pushRamp(){
+  if(!gl)return;
+  const cols=new Float32Array(39);
+  for(let i=0;i<13;i++){const c=hex2rgb(W_COL[Math.min(i,W_COL.length-1)]);cols[i*3]=c[0];cols[i*3+1]=c[1];cols[i*3+2]=c[2];}
+  const edges=new Float32Array(12).fill(9999);W_EDGES.forEach((e,i)=>edges[i]=e);
+  gl.useProgram(prog);gl.uniform3fv(loc.uCols,cols);gl.uniform1fv(loc.uEdges,edges);
+  gl.uniform1f(loc.uAlpha,parseFloat($("opacity").value));gl.uniform1f(loc.uMinDraw,-1.0);
+}
+
+function tileOrigin(bbox){return CRS.latLngToPoint(L.latLng((bbox[1]+bbox[3])/2,(bbox[0]+bbox[2])/2),Z0);}
+function buildFieldQuads(t,cols,rows){
+  const [W,S,E,N]=t.bbox,stepLon=(E-W)/(cols-1),stepLat=(N-S)/(rows-1);
+  t.ref=tileOrigin(t.bbox);t.gcols=cols;t.grows=rows;
+  const pos=new Float32Array(t.ne*6*2);let k=0;
+  for(let m=0;m<t.ne;m++){const r=(m/cols)|0,c=m%cols;
+    const lon=W+c*stepLon,lat=N-r*stepLat;t.cx[m]=lon;t.cy[m]=lat;
+    const p1=CRS.latLngToPoint(L.latLng(lat+stepLat/2,lon-stepLon/2),Z0);
+    const p2=CRS.latLngToPoint(L.latLng(lat-stepLat/2,lon+stepLon/2),Z0);
+    const x1=p1.x-t.ref.x,y1=p1.y-t.ref.y,x2=p2.x-t.ref.x,y2=p2.y-t.ref.y;
+    pos[k++]=x1;pos[k++]=y1;pos[k++]=x2;pos[k++]=y1;pos[k++]=x2;pos[k++]=y2;
+    pos[k++]=x1;pos[k++]=y1;pos[k++]=x2;pos[k++]=y2;pos[k++]=x1;pos[k++]=y2;}
+  t.posBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,t.posBuf);gl.bufferData(gl.ARRAY_BUFFER,pos,gl.STATIC_DRAW);
+  t.spdBuf=gl.createBuffer();
+}
+function decodeTile(t){
+  if(t.decodedHour===hour)return;t.decodedHour=hour;
+  const n=t.ne,span=t.span,vel=t.vel,sBase=hour*2*span,dBase=sBase+span;
+  for(let i=0;i<n;i++){const s=vel[sBase+i];t.spd[i]=(s===255)?NaN:s;t.dir[i]=vel[dBase+i]*360/255;}
+  for(let i=0;i<n;i++){const s=t.spd[i],v=(s!==s)?DRY:s,b=i*6;for(let j=0;j<6;j++)t.spd3[b+j]=v;}
+  if(gl){gl.bindBuffer(gl.ARRAY_BUFFER,t.spdBuf);gl.bufferData(gl.ARRAY_BUFFER,t.spd3,gl.DYNAMIC_DRAW);}
+}
+
+const FILL_DPR=matchMedia("(max-width:640px)").matches?1:Math.min(window.devicePixelRatio||1,2);
+function drawGL(){
+  const size=map.getSize();glc.width=size.x*FILL_DPR;glc.height=size.y*FILL_DPR;
+  glc.style.width=size.x+"px";glc.style.height=size.y+"px";
+  if(!gl||!windTile||!windTile.ready)return;
+  gl.viewport(0,0,glc.width,glc.height);gl.clear(gl.COLOR_BUFFER_BIT);
+  const t=windTile;decodeTile(t);
+  const z=map.getZoom(),scale=Math.pow(2,z-Z0);
+  const tlLL=map.containerPointToLatLng([0,0]),tl=CRS.latLngToPoint(tlLL,Z0);
+  gl.useProgram(prog);gl.uniform1f(loc.uScale,scale);gl.uniform2f(loc.uSize,size.x,size.y);
+  gl.uniform2f(loc.uTopLeft,tl.x-t.ref.x,tl.y-t.ref.y);
+  gl.bindBuffer(gl.ARRAY_BUFFER,t.posBuf);gl.enableVertexAttribArray(loc.aPos);gl.vertexAttribPointer(loc.aPos,2,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,t.spdBuf);gl.enableVertexAttribArray(loc.aSpeed);gl.vertexAttribPointer(loc.aSpeed,1,gl.FLOAT,false,0,0);
+  gl.drawArrays(gl.TRIANGLES,0,t.ne*6);
+}
+function gridStride(t,tp){
+  if(!t.gcols||!t.grows)return null;
+  const [W,S,E,N]=t.bbox,stepLon=(E-W)/(t.gcols-1),stepLat=(N-S)/(t.grows-1);
+  const clat=(S+N)/2,clon=(W+E)/2,p0=map.latLngToContainerPoint([clat,clon]);
+  const pxx=Math.abs(map.latLngToContainerPoint([clat,clon+stepLon]).x-p0.x);
+  const pxy=Math.abs(map.latLngToContainerPoint([clat+stepLat,clon]).y-p0.y);
+  if(!(pxx>0)||!(pxy>0))return null;
+  const sc=Math.max(1,Math.ceil(tp*0.8/pxx)),sr=Math.max(1,Math.ceil(tp*0.8/pxy));
+  return{sc,sr,eff:Math.min(sc*pxx,sr*pxy)};
+}
+function drawArrows(){
+  const size=map.getSize(),dpr=FILL_DPR;
+  arc.width=size.x*dpr;arc.height=size.y*dpr;arc.style.width=size.x+"px";arc.style.height=size.y+"px";
+  const ctx=arc.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size.x,size.y);
+  const tp=+$("arrows").value;if(!tp||!windTile||!windTile.ready)return;
+  const t=windTile;decodeTile(t);
+  const b=map.getBounds(),bW=b.getWest(),bE=b.getEast(),bS=b.getSouth(),bN=b.getNorth();
+  const st=gridStride(t,tp);
+  const L2=st?Math.max(4,Math.min(12,st.eff*0.42)):Math.max(4,Math.min(12,tp*0.42));
+  ctx.strokeStyle="rgba(20,20,30,.92)";ctx.fillStyle="rgba(20,20,30,.92)";ctx.lineWidth=1.1;ctx.lineCap="round";
+  for(let i=0;i<t.ne;i++){
+    const s=t.spd[i];if(isNaN(s)||s<1)continue;
+    const lo=t.cx[i],la=t.cy[i];if(lo<bW||lo>bE||la<bS||la>bN)continue;
+    if(st){const r=(i/t.gcols)|0,c=i%t.gcols;if(r%st.sr||c%st.sc)continue;}
+    const p=map.latLngToContainerPoint([la,lo]);
+    const tw=(t.dir[i]+180)*Math.PI/180,dx=Math.sin(tw),dy=-Math.cos(tw);
+    const x2=p.x+dx*L2,y2=p.y+dy*L2;
+    ctx.beginPath();ctx.moveTo(p.x-dx*L2,p.y-dy*L2);ctx.lineTo(x2,y2);ctx.stroke();
+    const a1=tw+2.5,a2=tw-2.5,hs=L2*0.5;
+    ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2+Math.sin(a1)*hs,y2-Math.cos(a1)*hs);
+    ctx.lineTo(x2+Math.sin(a2)*hs,y2-Math.cos(a2)*hs);ctx.closePath();ctx.fill();
+  }
+}
+function render(){syncOverlayPos();drawGL();drawArrows();}
+map.on("move zoomend resize",render);
+let vpTimer=null;
+function onVP(){clearTimeout(vpTimer);vpTimer=setTimeout(()=>{map.invalidateSize({animate:false});render();},120);}
+addEventListener("resize",onVP);addEventListener("orientationchange",onVP);
+if(window.visualViewport)visualViewport.addEventListener("resize",onVP);
+
+// ---- hover / tap readout ----
+const tip=$("tip");
+const tipClose=document.createElement("button");tipClose.className="tipClose";tipClose.textContent="✕";
+tipClose.onclick=e=>{e.stopPropagation();hideTip();};
+const tipBody=document.createElement("div");tipBody.className="tipBody";
+tip.append(tipClose,tipBody);
+const pinMode=()=>matchMedia("(pointer:coarse)").matches||matchMedia("(max-width:640px)").matches;
+const SNAP_DEG=0.016;
+function nearestCell(t,lat,lon){let best=-1,bd=SNAP_DEG*SNAP_DEG,cosm=Math.cos(lat*Math.PI/180);
+  for(let i=0;i<t.ne;i++){const dlo=(t.cx[i]-lon)*cosm,dla=t.cy[i]-lat,d=dlo*dlo+dla*dla;
+    if(d<bd){bd=d;best=i;}}return best;}
+let hoverLL=null,hoverEv=null,hoverRAF=0,hoverTimer=0,hoverDrawn=0,hoverTrail=0;
+const HOVER_DELAY_MS=300,OPEN_SETTLE_MS=100;
+function onHover(e){hoverLL=e.latlng;hoverEv=e.originalEvent;if(!hoverRAF)hoverRAF=requestAnimationFrame(doHover);}
+function queueHover(){hoverDrawn=performance.now();if(!hoverRAF)hoverRAF=requestAnimationFrame(doHover);}
+function onHoverDelayed(e){hoverLL=e.latlng;hoverEv=e.originalEvent;
+  if(tip.style.display==="block"){const due=OPEN_SETTLE_MS-(performance.now()-hoverDrawn);
+    if(due<=0)queueHover();else if(!hoverTrail)hoverTrail=setTimeout(()=>{hoverTrail=0;queueHover();},due);return;}
+  clearTimeout(hoverTimer);hoverTimer=setTimeout(()=>{hoverTimer=0;queueHover();},HOVER_DELAY_MS);}
+function hideTip(){clearTimeout(hoverTimer);hoverTimer=0;clearTimeout(hoverTrail);hoverTrail=0;
+  hoverLL=null;tip.style.display="none";tip.classList.remove("pinned");}
+function refreshTip(){if(hoverLL&&tip.style.display!=="none")doHover();}
+function doHover(){
+  hoverRAF=0;if(!hoverLL||!windTile||!windTile.ready)return;
+  const lat=hoverLL.lat,lon=hoverLL.lng;decodeTile(windTile);
+  const m=nearestCell(windTile,lat,lon);
+  if(m<0||isNaN(windTile.spd[m])){hideTip();return;}
+  const s=windTile.spd[m],d=windTile.dir[m];
+  tipBody.innerHTML=`<b>Wind</b>`
+    +`<div><span class="k">Speed:</span> <b>${mph(s)} mph</b> · F${beauF(s)} ${W_NAMES[beauF(s)]} · ${Math.round(s)} km/h</div>`
+    +`<div><span class="k">From:</span> ${compass(d)} (${Math.round(d)}°)</div>`;
+  tip.style.display="block";
+  if(pinMode()){tip.classList.add("pinned");tip.style.left=tip.style.top="";return;}
+  tip.classList.remove("pinned");
+  const pad=14,ev=hoverEv,tw2=tip.offsetWidth,th=tip.offsetHeight;
+  let x=ev.clientX+pad,y=ev.clientY+pad;
+  if(x+tw2>innerWidth-6)x=ev.clientX-pad-tw2;if(y+th>innerHeight-6)y=ev.clientY-pad-th;
+  tip.style.left=Math.max(4,x)+"px";tip.style.top=Math.max(4,y)+"px";
+}
+map.on("mousemove",e=>{if(!pinMode())onHoverDelayed(e);});
+map.on("mouseout",()=>{if(!pinMode())hideTip();});
+map.on("click",e=>{if(e.originalEvent&&e.originalEvent._fireMarker)return;onHover(e);});
+map.on("dragstart zoomstart",hideTip);
+
+// ---- controls ----
+const clampA=v=>Math.max(0,Math.min(1,Math.round(v*100)/100));
+$("opacity").oninput=()=>{const v=parseFloat($("opacity").value);
+  $("opacityVal").textContent=Math.round(v*100)+"%";
+  if(gl){gl.useProgram(prog);gl.uniform1f(loc.uAlpha,v);}buildLegend();render();};
+$("opacityVal").textContent="72%";
+$("opDown").onclick=()=>{$("opacity").value=clampA(parseFloat($("opacity").value)-0.05);$("opacity").oninput();};
+$("opUp").onclick=()=>{$("opacity").value=clampA(parseFloat($("opacity").value)+0.05);$("opacity").oninput();};
+let lastAV=$("arrows").value;
+$("arrowsTgl").onclick=()=>{const on=$("arrows").value!=="0";
+  if(on){lastAV=$("arrows").value;$("arrows").value="0";}else{$("arrows").value=lastAV||"10";}
+  $("arrowsTgl").textContent=on?"➤ Off":"➤ On";$("arrowsTgl").setAttribute("aria-pressed",!on);render();};
+$("arrows").onchange=()=>{const on=$("arrows").value!=="0";
+  $("arrowsTgl").textContent=on?"➤ On":"➤ Off";$("arrowsTgl").setAttribute("aria-pressed",on);render();};
+function updateTimeLabel(){if(TIMES.length)$("timeLabel").textContent=PTL.format(new Date(TIMES[hour]))+" (+"+hour+"h)";}
+function setHour(h){hour=Math.max(0,Math.min(TIMES.length-1,h));$("time").value=hour;updateTimeLabel();render();refreshTip();}
+$("time").oninput=()=>setHour(+$("time").value);
+$("stepBack").onclick=()=>setHour(hour-1);$("stepFwd").onclick=()=>setHour(hour+1);
+$("playBtn").onclick=()=>{if(anim){clearInterval(anim);anim=null;$("playBtn").textContent="▶";}
+  else{anim=setInterval(()=>setHour(hour>=TIMES.length-1?0:hour+1),350);$("playBtn").textContent="⏸";}};
+function setStatus(msg,err){$("status").textContent=msg;$("status").classList.toggle("err",!!err);}
+
+// ---- legend ----
+function buildLegend(){
+  const leg=$("legend");leg.innerHTML="";
+  const a=parseFloat($("opacity").value);
+  const blend=(hex)=>{const c=hex2rgb(hex);const m=k=>Math.round(255*(c[k]*a+0.94*(1-a)));return`rgb(${m(0)},${m(1)},${m(2)})`};
+  for(let i=0;i<W_COL.length;i++){
+    const lo=i===0?0:mph(W_EDGES[i-1]),hi=i<W_EDGES.length?mph(W_EDGES[i]):null;
+    const range=hi!==null?`${lo}–${hi}`:`${lo}+`;
+    const chip=document.createElement("span");chip.className="lchip";
+    chip.innerHTML=`<span class="lsw" style="background:${blend(W_COL[i])}"></span>F${i} ${range} mph`;
+    leg.appendChild(chip);
+  }
+}
+
+// ---- URL bookmark ----
+function updateURL(){try{const c=map.getCenter(),z=map.getZoom();
+  const q=new URLSearchParams();q.set("lat",c.lat.toFixed(4));q.set("lon",c.lng.toFixed(4));q.set("z",z);q.set("h",hour);
+  history.replaceState(null,"","?"+q.toString());}catch(e){}}
+map.on("moveend",updateURL);
+
+// ---- marked location ----
+// David: provide [lat, lon] and a label here
+const MARKER_POS=[48.6631,-118.5660];
+const MARKER_LABEL="Byrds";
+let markerLayer=null;
+function addMarker(){if(!MARKER_POS)return;
+  markerLayer=L.circleMarker(MARKER_POS,{radius:8,fillColor:"#fff",color:"#d62828",weight:3,fillOpacity:1}).addTo(map);
+  if(MARKER_LABEL){markerLayer.bindTooltip(MARKER_LABEL,{permanent:true,direction:"right",offset:[10,0],className:"marker-tip"});}}
+$("markerTgl").onclick=()=>{if(!markerLayer)return;
+  const vis=map.hasLayer(markerLayer);
+  if(vis){map.removeLayer(markerLayer);}else{markerLayer.addTo(map);}
+  $("markerTgl").setAttribute("aria-pressed",!vis);
+  $("markerTgl").style.opacity=vis?".5":"1";};
+
+// ---- phone layout ----
+function mobileLayout(){
+  if(!matchMedia("(max-width:640px)").matches)return;
+  const mapEl=$("map"),leg=$("legend");
+  if(!leg.parentElement||leg.parentElement!==mapEl)mapEl.appendChild(leg);
+  if(!$("legendBtn")){const btn=document.createElement("button");btn.id="legendBtn";btn.textContent="Key";
+    btn.onclick=()=>{leg.classList.toggle("open");btn.classList.toggle("open");
+      btn.textContent=leg.classList.contains("open")?"✕":"Key";};
+    mapEl.appendChild(btn);}
+}
+
+// ---- data load ----
+async function gunzip(u8){const ds=new DecompressionStream('gzip');
+  return new Uint8Array(await new Response(new Response(u8).body.pipeThrough(ds)).arrayBuffer());}
+
+async function boot(){
+  if(!initGL())return;
+  setStatus("Loading wind data…");
+  try{
+    const mr=await fetch(R2+"/hrdps/manifest.json",{cache:"no-store"});
+    if(!mr.ok)throw new Error("manifest HTTP "+mr.status);
+    const man=await mr.json();
+    const rk=man.regions["pnw-rockies"]?"pnw-rockies":man.regions["coast-overview"]?"coast-overview":"overview";
+    const ov=man.regions[rk];if(!ov)throw new Error("no region in manifest");
+    const sizeMB=((ov.cols*ov.rows*man.hours.length*2)/1e6).toFixed(1);
+    setStatus("Loading "+(ov.name||rk)+" (~"+sizeMB+" MB)…");
+    let bytes=new Uint8Array(await(await fetch(R2+"/hrdps/"+ov.file,{cache:"no-store"})).arrayBuffer());
+    if(bytes[0]===0x1f&&bytes[1]===0x8b)bytes=await gunzip(bytes);
+    TIMES=man.hours.map(h=>new Date(h).getTime());
+    const cols=ov.cols,rows=ov.rows,span=cols*rows,nh=man.hours.length;
+    if(bytes.length!==nh*2*span)throw new Error("wind data size mismatch: got "+bytes.length+" B, expected "+nh*2*span);
+    const ne=span;
+    const t={key:"wind",bbox:ov.bbox,vpe:6,ready:false,decodedHour:-1,ne,span,
+      vel:bytes,cx:new Float32Array(ne),cy:new Float32Array(ne),
+      spd:new Float32Array(ne),dir:new Float32Array(ne),spd3:new Float32Array(ne*6)};
+    buildFieldQuads(t,cols,rows);t.ready=true;windTile=t;
+    $("time").max=TIMES.length-1;
+    if(isFinite(URL_P.h)&&URL_P.h>=0&&URL_P.h<TIMES.length)hour=URL_P.h;
+    $("time").value=hour;updateTimeLabel();buildLegend();addMarker();mobileLayout();render();
+    const age=Math.round((Date.now()-new Date(man.run).getTime())/3.6e6);
+    setStatus("HRDPS 2.5 km · "+rk+" · "+cols+"×"+rows+" · run "+PTL.format(new Date(man.run))+" ("+age+" h ago)");
+    $("note").textContent="Wind data covers the HRDPS overview region. To extend coverage east (ID/MT), add a wider region to hrdps-ingest.";
+    updateURL();
+  }catch(e){setStatus("Failed to load: "+e.message,true);}
+}
+// ---- active fire layers (NIFC + FIRMS VIIRS) ----
+const NIFC_BASE="https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services";
+const NIFC_INCIDENTS=NIFC_BASE+"/EGP_Active_Incidents_Public_view/FeatureServer";
+const FIRE_BBOX="-128,42,-104,52";
+const FIRMS_KEY="da31ed0360321eda601f259074f3d87a";
+const BYRDS_LAT=48.6631,BYRDS_LON=-118.5660,FIRMS_RADIUS_MI=30;
+const dLat=FIRMS_RADIUS_MI/69.0,dLon=FIRMS_RADIUS_MI/(69.0*Math.cos(BYRDS_LAT*Math.PI/180));
+const FIRMS_BBOX=`${(BYRDS_LON-dLon).toFixed(4)},${(BYRDS_LAT-dLat).toFixed(4)},${(BYRDS_LON+dLon).toFixed(4)},${(BYRDS_LAT+dLat).toFixed(4)}`;
+const FIRMS_DAYS=2;
+let fireGroup=L.layerGroup().addTo(map);
+let fireLoaded=false;
+
+function firePopup(p){
+  let h=`<div class="fire-popup"><b>${p.Name||"Unknown"}</b><table>`;
+  if(p.DailyAcres!=null)h+=`<tr><td>Acres</td><td>${Math.round(p.DailyAcres).toLocaleString()}</td></tr>`;
+  if(p.PercentContained!=null)h+=`<tr><td>Contained</td><td>${p.PercentContained}%</td></tr>`;
+  if(p.Cause)h+=`<tr><td>Cause</td><td>${p.Cause}</td></tr>`;
+  if(p.County)h+=`<tr><td>County</td><td>${p.County}, ${p.POOState||""}</td></tr>`;
+  if(p.Discovery_Date)h+=`<tr><td>Discovered</td><td>${p.Discovery_Date.replace(/\s\d{2}:\d{2}:\d{2}$/,"")}</td></tr>`;
+  return h+"</table></div>";}
+
+function heatPopup(p){
+  let h=`<div class="fire-popup"><b>Satellite Detection</b><table>`;
+  const satName={N:"S-NPP",N20:"NOAA-20",N21:"NOAA-21"};
+  h+=`<tr><td>Sensor</td><td>${satName[p.satellite]||p.satellite} ${p.instrument}</td></tr>`;
+  const cLbl={l:"Low",n:"Nominal",h:"High"};
+  h+=`<tr><td>Confidence</td><td>${cLbl[p.confidence]||p.confidence}</td></tr>`;
+  if(p.frp)h+=`<tr><td>Power</td><td>${p.frp} MW</td></tr>`;
+  const tStr=String(p.acq_time).padStart(4,"0");
+  h+=`<tr><td>Detected</td><td>${p.acq_date} ${tStr.slice(0,2)}:${tStr.slice(2)} UTC</td></tr>`;
+  h+=`<tr><td>Day/Night</td><td>${p.daynight==="D"?"Day":"Night"}</td></tr>`;
+  return h+"</table></div>";}
+
+function parseFirmsCSV(text){
+  const lines=text.trim().split("\n");
+  if(lines.length<2)return[];
+  const hdr=lines[0].split(",");
+  return lines.slice(1).map(line=>{
+    const vals=line.split(",");
+    const obj={};
+    hdr.forEach((k,i)=>obj[k]=vals[i]);
+    obj.latitude=parseFloat(obj.latitude);
+    obj.longitude=parseFloat(obj.longitude);
+    obj.frp=parseFloat(obj.frp)||0;
+    return obj;
+  });
+}
+
+async function loadFires(){
+  const qp=`where=1%3D1&returnGeometry=true&f=geojson&geometry=${FIRE_BBOX}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSR=4326`;
+  const nifcUrls=[
+    {u:`${NIFC_INCIDENTS}/4/query?${qp}&outFields=Name,DailyAcres,PercentContained,Cause,County,POOState,Discovery_Date&resultRecordCount=200`,layer:"Large fires"},
+    {u:`${NIFC_INCIDENTS}/5/query?${qp}&outFields=Name,DailyAcres,PercentContained,Cause,County,POOState,Discovery_Date&resultRecordCount=200`,layer:"Wildfires"},
+    {u:`${NIFC_INCIDENTS}/2/query?${qp}&outFields=Name,DailyAcres,PercentContained,Cause,County,POOState,Discovery_Date&resultRecordCount=100`,layer:"Emerging <24h"},
+    {u:`${NIFC_INCIDENTS}/3/query?${qp}&outFields=Name,DailyAcres,PercentContained,Cause,County,POOState,Discovery_Date&resultRecordCount=100`,layer:"Emerging >24h"},
+  ];
+  const firmsUrls=[
+    `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/VIIRS_SNPP_NRT/${FIRMS_BBOX}/${FIRMS_DAYS}`,
+    `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/VIIRS_NOAA20_NRT/${FIRMS_BBOX}/${FIRMS_DAYS}`,
+    `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/VIIRS_NOAA21_NRT/${FIRMS_BBOX}/${FIRMS_DAYS}`,
+  ];
+  let nInc=0,nHeat=0;
+
+  // NIFC named incidents
+  for(const {u} of nifcUrls){
+    try{
+      const r=await fetch(u);if(!r.ok)continue;
+      const gj=await r.json();if(!gj.features)continue;
+      for(const f of gj.features){
+        const [lon,lat]=f.geometry.coordinates;
+        const sz=Math.max(6,Math.min(18,Math.sqrt((f.properties.DailyAcres||100)/50)));
+        L.circleMarker([lat,lon],{radius:sz,fillColor:"#ff4500",color:"#8b0000",weight:2,fillOpacity:.85})
+          .bindPopup(firePopup(f.properties)).on("click",e=>{if(e.originalEvent)e.originalEvent._fireMarker=true;hideTip();}).addTo(fireGroup);
+        nInc++;
+      }
+    }catch(e){console.warn("NIFC fetch failed:",e);}
+  }
+
+  // FIRMS VIIRS satellite detections (3 satellites, 375 m, NRT)
+  for(const u of firmsUrls){
+    try{
+      const r=await fetch(u);if(!r.ok){console.warn("FIRMS "+r.status);continue;}
+      const rows=parseFirmsCSV(await r.text());
+      for(const p of rows){
+        if(!isFinite(p.latitude))continue;
+        const dLa=(p.latitude-BYRDS_LAT)*69.0,dLo=(p.longitude-BYRDS_LON)*69.0*Math.cos(BYRDS_LAT*Math.PI/180);
+        if(dLa*dLa+dLo*dLo>FIRMS_RADIUS_MI*FIRMS_RADIUS_MI)continue;
+        const col=p.confidence==="h"?"#ff2200":p.confidence==="n"?"#ff6600":"#ffaa00";
+        L.circleMarker([p.latitude,p.longitude],{radius:3.5,fillColor:col,color:col,weight:0,fillOpacity:.7})
+          .bindPopup(heatPopup(p)).on("click",e=>{if(e.originalEvent)e.originalEvent._fireMarker=true;hideTip();}).addTo(fireGroup);
+        nHeat++;
+      }
+    }catch(e){console.warn("FIRMS fetch failed:",e);}
+  }
+
+  fireLoaded=true;
+  console.log(`Fires loaded: ${nInc} incidents, ${nHeat} VIIRS detections`);
+}
+
+$("fireTgl").onclick=()=>{
+  const vis=map.hasLayer(fireGroup);
+  if(vis){map.removeLayer(fireGroup);}else{fireGroup.addTo(map);if(!fireLoaded)loadFires();}
+  $("fireTgl").setAttribute("aria-pressed",!vis);
+  $("fireTgl").style.opacity=vis?".5":"1";
+  $("fireTgl").style.background=vis?"#888":"#d62828";};
+
+boot();
+loadFires();
+</script>
+</body>
+</html>
