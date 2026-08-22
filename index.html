@@ -40,6 +40,20 @@
   .lsw{width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.15)}
   .status{font-size:13px;color:var(--muted);margin-top:10px} .status.err{color:#b54708}
   .note{font-size:12px;color:var(--muted);margin-top:10px}
+  .about{margin-top:16px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+  .about summary{padding:12px 16px;font-weight:700;font-size:14px;cursor:pointer;list-style:none;
+    display:flex;align-items:center;gap:6px;color:var(--ink);user-select:none}
+  .about summary::-webkit-details-marker{display:none}
+  .about summary::before{content:"▶";font-size:10px;transition:transform .15s}
+  .about[open] summary::before{transform:rotate(90deg)}
+  .about-body{padding:4px 16px 16px;font-size:13px;line-height:1.6;color:#444}
+  .about-body h3{font-size:13px;margin:14px 0 4px;color:var(--ink)}
+  .about-body h3:first-child{margin-top:0}
+  .about-body p{margin:4px 0}
+  .about-body ul{margin:4px 0 4px 18px;padding:0}
+  .about-body li{margin:2px 0}
+  .about-body .src{background:#f5f7fa;border:1px solid var(--line);border-radius:6px;padding:10px 14px;margin:8px 0}
+  .about-body .src b{color:var(--ink)}
   #tip{position:fixed;z-index:9999;pointer-events:none;display:none;max-width:250px;
        background:rgba(17,24,32,.94);color:#fff;font-size:12px;line-height:1.5;
        padding:8px 10px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
@@ -91,6 +105,9 @@
     #map{flex:1 1 240px;height:auto;min-height:180px;border-radius:8px}
     .status{flex:0 0 auto;margin:4px 0 0;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .note{display:none}
+    .about{margin:8px 0 0;border-radius:8px}
+    .about summary{padding:10px 12px;font-size:13px}
+    .about-body{padding:4px 12px 12px;font-size:12px}
     #map .legend{position:fixed;left:8px;right:8px;bottom:8px;z-index:1100;margin:0;display:none;
          background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:10px;
          padding:8px 56px 8px 8px;max-height:50vh;max-height:50dvh;overflow:auto;
@@ -128,6 +145,35 @@
   <div id="map"></div>
   <p class="status" id="status">Loading…</p>
   <p class="note" id="note"></p>
+  <details class="about">
+    <summary>About this map</summary>
+    <div class="about-body">
+      <h3>What you're looking at</h3>
+      <p>A wind map covering Oregon, Washington, Idaho, Montana, and southern British Columbia. Colors show wind speed on the Beaufort scale in <b>miles per hour</b>. Arrows show which way the wind is blowing (they point downwind). Fire markers show active wildfires and recent satellite heat detections near Byrds.</p>
+
+      <h3>How to use it</h3>
+      <ul>
+        <li><b>Hover or tap</b> anywhere on the map for a wind readout: speed in mph, Beaufort number, and compass direction.</li>
+        <li><b>Timeline slider</b> steps through the forecast one hour at a time (up to 48 hours). On phone, use the ◀ ▶ buttons. On desktop, the ▶ button animates through all hours.</li>
+        <li><b>Fill opacity</b> controls how transparent the wind overlay is, so you can see terrain underneath. On phone, use the − and + buttons.</li>
+        <li><b>Arrows</b> toggle wind direction arrows on or off. Desktop also has a density selector (Normal / Dense / Max).</li>
+        <li><b>Byrds</b> button shows or hides the marked location.</li>
+        <li><b>🔥 Fires</b> button shows or hides the fire layers. Tap any fire marker for details.</li>
+      </ul>
+      <p>The URL updates as you pan, zoom, and step through time, so you can share or bookmark any view.</p>
+
+      <h3>Data sources</h3>
+      <div class="src">
+        <p><b>Wind:</b> Environment and Climate Change Canada (ECCC) High Resolution Deterministic Prediction System (HRDPS), 2.5 km grid spacing, 10 m above ground. Updated roughly every 6 hours with a 48-hour forecast. The model covers all of North America; this map shows the Pacific Northwest and northern Rockies region.</p>
+      </div>
+      <div class="src">
+        <p><b>Named fires:</b> NIFC (National Interagency Fire Center) Active Incidents, pulled from the ArcGIS public feature service. Includes fire name, acreage, percent contained, cause, and discovery date. Covers the full map area. Circle size reflects reported acreage.</p>
+      </div>
+      <div class="src">
+        <p><b>Satellite fire detections:</b> NASA FIRMS (Fire Information for Resource Management System) using the VIIRS sensor at 375 m resolution. Three satellites contribute: Suomi NPP, NOAA-20, and NOAA-21, giving roughly six passes per day combined. Detections are near-real-time, typically within 3 hours of overpass. Shown within 30 miles of Byrds only. Marker color indicates confidence: red = high, orange = nominal, yellow = low. Very small fires (under ~1 acre) may not produce enough heat for satellite detection.</p>
+      </div>
+    </div>
+  </details>
 </main>
 <div id="tip"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
