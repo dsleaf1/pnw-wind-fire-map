@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#2d6a4f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>PNW Wind Map — OR · WA · ID · MT · BC (HRDPS 2.5 km)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
@@ -586,6 +589,8 @@ $("fireTgl").onclick=()=>{
   $("fireTgl").setAttribute("aria-pressed",!vis);
   $("fireTgl").style.opacity=vis?".5":"1";
   $("fireTgl").style.background=vis?"#888":"#d62828";};
+
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 
 boot();
 loadFires();
