@@ -480,7 +480,7 @@ async function boot(){
     $("time").value=hour;updateTimeLabel();buildLegend();addMarker();mobileLayout();render();
     const age=Math.round((Date.now()-new Date(man.run).getTime())/3.6e6);
     setStatus("HRDPS 2.5 km · "+rk+" · "+cols+"×"+rows+" · run "+PTL.format(new Date(man.run))+" ("+age+" h ago)");
-    $("note").textContent="Wind data covers the HRDPS overview region. To extend coverage east (ID/MT), add a wider region to hrdps-ingest.";
+    if(rk==="overview")$("note").textContent="Wind data covers the HRDPS overview region. To extend coverage east (ID/MT), add a wider region to hrdps-ingest.";
     updateURL();
   }catch(e){setStatus("Failed to load: "+e.message,true);}
 }
