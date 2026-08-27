@@ -1,4 +1,4 @@
-const CACHE_VERSION = "pnwwind-shell-v2";
+const CACHE_VERSION = "pnwwind-shell-v3";
 
 const SHELL = [
   "./",

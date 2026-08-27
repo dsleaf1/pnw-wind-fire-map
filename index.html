@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#2d6a4f">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>PNW Wind Map — OR · WA · ID · MT · BC (HRDPS 2.5 km)</title>
+<title>PNW Wind Map — OR · WA · ID · MT · BC · AB (HRDPS 2.5 km)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
   :root{--ink:#1b2430;--muted:#667085;--bg:#f5f7fa;--line:#e3e8ef;
@@ -152,7 +152,7 @@
     <summary>About this map</summary>
     <div class="about-body">
       <h3>What you're looking at</h3>
-      <p>A wind map covering Oregon, Washington, Idaho, Montana, and southern British Columbia. Colors show wind speed on the Beaufort scale in <b>miles per hour</b>. Arrows show which way the wind is blowing (they point downwind). Fire markers show active wildfires and recent satellite heat detections near Byrds.</p>
+      <p>A wind map covering Oregon, Washington, Idaho, Montana, British Columbia, and Alberta. Colors show wind speed on the Beaufort scale in <b>miles per hour</b>. Arrows show which way the wind is blowing (they point downwind). Fire markers show active wildfires and satellite heat detections across the full map area.</p>
 
       <h3>How to use it</h3>
       <ul>
@@ -170,10 +170,13 @@
         <p><b>Wind:</b> Environment and Climate Change Canada (ECCC) High Resolution Deterministic Prediction System (HRDPS), 2.5 km grid spacing, 10 m above ground. Updated roughly every 6 hours with a 48-hour forecast. The model covers all of North America; this map shows the Pacific Northwest and northern Rockies region.</p>
       </div>
       <div class="src">
-        <p><b>Named fires:</b> NIFC (National Interagency Fire Center) Active Incidents, pulled from the ArcGIS public feature service. Includes fire name, acreage, percent contained, cause, and discovery date. Covers the full map area. Circle size reflects reported acreage.</p>
+        <p><b>Named fires (US):</b> NIFC (National Interagency Fire Center) Active Incidents, pulled from the ArcGIS public feature service. Includes fire name, acreage, percent contained, cause, and discovery date. Circle size reflects reported acreage.</p>
       </div>
       <div class="src">
-        <p><b>Satellite fire detections:</b> NASA FIRMS (Fire Information for Resource Management System) using the VIIRS sensor at 375 m resolution. Three satellites contribute: Suomi NPP, NOAA-20, and NOAA-21, giving roughly six passes per day combined. Detections are near-real-time, typically within 3 hours of overpass. Shown within 30 miles of Byrds only. Marker color indicates confidence: red = high, orange = nominal, yellow = low. Very small fires (under ~1 acre) may not produce enough heat for satellite detection.</p>
+        <p><b>Named fires (BC):</b> BC Wildfire Service active fires, pulled from their public ArcGIS feature service. Includes fire name, size in hectares, stage of control, suspected cause, and ignition date. Circle size reflects reported area.</p>
+      </div>
+      <div class="src">
+        <p><b>Satellite fire detections:</b> NASA FIRMS (Fire Information for Resource Management System) using the VIIRS sensor at 375 m resolution. Three satellites contribute: Suomi NPP, NOAA-20, and NOAA-21, giving roughly six passes per day combined. Detections are near-real-time, typically within 3 hours of overpass. Covers the full map area. Marker color indicates confidence: red = high, orange = nominal, yellow = low. Very small fires (under ~1 acre) may not produce enough heat for satellite detection.</p>
       </div>
     </div>
   </details>
@@ -201,7 +204,7 @@ const DRY=-1000, Z0=12;
 let hour=0, TIMES=[], windTile=null, anim=null;
 
 const map=L.map("map",{zoomAnimation:false,fadeAnimation:false,
-  maxBounds:L.latLngBounds([[41.5,-130.0],[53.0,-103.0]]),maxBoundsViscosity:1.0});
+  maxBounds:L.latLngBounds([[41.5,-130.0],[60.5,-103.0]]),maxBoundsViscosity:1.0});
 L.tileLayer("https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
   {maxZoom:16,attribution:"USGS",className:"baseTiles",crossOrigin:true}).addTo(map);
 
@@ -220,6 +223,8 @@ requestAnimationFrame(()=>{if(!fitOK())fitExtent();});
 addEventListener("load",()=>{if(!fitOK())fitExtent();});
 
 map.createPane("fields");map.getPane("fields").style.zIndex=450;map.getPane("fields").style.pointerEvents="none";
+map.createPane("viirs");map.getPane("viirs").style.zIndex=455;map.getPane("viirs").style.pointerEvents="none";
+map.getPane("overlayPane").style.zIndex=460;
 const cont=map.getPane("fields");
 const glc=document.createElement("canvas");glc.className="ovl";cont.appendChild(glc);
 const arc=document.createElement("canvas");arc.className="ovl";cont.appendChild(arc);
@@ -487,12 +492,11 @@ async function boot(){
 // ---- active fire layers (NIFC + FIRMS VIIRS) ----
 const NIFC_BASE="https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services";
 const NIFC_INCIDENTS=NIFC_BASE+"/EGP_Active_Incidents_Public_view/FeatureServer";
-const FIRE_BBOX="-128,42,-104,52";
+const FIRE_BBOX="-130,42,-103,60";
 const FIRMS_KEY="da31ed0360321eda601f259074f3d87a";
-const BYRDS_LAT=48.6631,BYRDS_LON=-118.5660,FIRMS_RADIUS_MI=30;
-const dLat=FIRMS_RADIUS_MI/69.0,dLon=FIRMS_RADIUS_MI/(69.0*Math.cos(BYRDS_LAT*Math.PI/180));
-const FIRMS_BBOX=`${(BYRDS_LON-dLon).toFixed(4)},${(BYRDS_LAT-dLat).toFixed(4)},${(BYRDS_LON+dLon).toFixed(4)},${(BYRDS_LAT+dLat).toFixed(4)}`;
 const FIRMS_DAYS=2;
+const BCWS_BASE="https://services6.arcgis.com/ubm4tcTYICKBpist/arcgis/rest/services/BCWS_ActiveFires_PublicView/FeatureServer/0";
+const fireCanvas=L.canvas({padding:0.3,pane:"viirs"});
 let fireGroup=L.layerGroup().addTo(map);
 let fireLoaded=false;
 
@@ -515,6 +519,16 @@ function heatPopup(p){
   const tStr=String(p.acq_time).padStart(4,"0");
   h+=`<tr><td>Detected</td><td>${p.acq_date} ${tStr.slice(0,2)}:${tStr.slice(2)} UTC</td></tr>`;
   h+=`<tr><td>Day/Night</td><td>${p.daynight==="D"?"Day":"Night"}</td></tr>`;
+  return h+"</table></div>";}
+
+function bcFirePopup(p){
+  let h=`<div class="fire-popup"><b>${p.INCIDENT_NAME||p.FIRE_NUMBER||"Unknown"}</b><table>`;
+  if(p.CURRENT_SIZE!=null)h+=`<tr><td>Size</td><td>${Math.round(p.CURRENT_SIZE).toLocaleString()} ha</td></tr>`;
+  if(p.FIRE_STATUS)h+=`<tr><td>Status</td><td>${p.FIRE_STATUS}</td></tr>`;
+  if(p.FIRE_CAUSE)h+=`<tr><td>Cause</td><td>${p.FIRE_CAUSE}</td></tr>`;
+  if(p.GEOGRAPHIC_DESCRIPTION)h+=`<tr><td>Location</td><td>${p.GEOGRAPHIC_DESCRIPTION}</td></tr>`;
+  if(p.IGNITION_DATE)h+=`<tr><td>Ignition</td><td>${new Date(p.IGNITION_DATE).toLocaleDateString()}</td></tr>`;
+  h+=`<tr><td>Source</td><td>BC Wildfire Service</td></tr>`;
   return h+"</table></div>";}
 
 function parseFirmsCSV(text){
@@ -540,14 +554,21 @@ async function loadFires(){
     {u:`${NIFC_INCIDENTS}/2/query?${qp}&outFields=Name,DailyAcres,PercentContained,Cause,County,POOState,Discovery_Date&resultRecordCount=100`,layer:"Emerging <24h"},
     {u:`${NIFC_INCIDENTS}/3/query?${qp}&outFields=Name,DailyAcres,PercentContained,Cause,County,POOState,Discovery_Date&resultRecordCount=100`,layer:"Emerging >24h"},
   ];
-  const firmsUrls=[
-    `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/VIIRS_SNPP_NRT/${FIRMS_BBOX}/${FIRMS_DAYS}`,
-    `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/VIIRS_NOAA20_NRT/${FIRMS_BBOX}/${FIRMS_DAYS}`,
-    `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/VIIRS_NOAA21_NRT/${FIRMS_BBOX}/${FIRMS_DAYS}`,
-  ];
-  let nInc=0,nHeat=0;
+  // BC Wildfire Service
+  const bcQp=`where=FIRE_STATUS%20NOT%20IN%20('Out')&returnGeometry=true&f=geojson&outFields=INCIDENT_NAME,FIRE_NUMBER,CURRENT_SIZE,FIRE_STATUS,FIRE_CAUSE,GEOGRAPHIC_DESCRIPTION,IGNITION_DATE&resultRecordCount=1000`;
+  const bcUrl=`${BCWS_BASE}/query?${bcQp}`;
 
-  // NIFC named incidents
+  // FIRMS VIIRS full map bbox — split N/S if needed for API area limits
+  const firmsBboxS="-130,42,-103,51", firmsBboxN="-130,51,-103,60";
+  const firmsSats=["VIIRS_SNPP_NRT","VIIRS_NOAA20_NRT","VIIRS_NOAA21_NRT"];
+  const firmsUrls=[];
+  for(const sat of firmsSats){
+    firmsUrls.push(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/${sat}/${firmsBboxS}/${FIRMS_DAYS}`);
+    firmsUrls.push(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/${sat}/${firmsBboxN}/${FIRMS_DAYS}`);
+  }
+  let nInc=0,nBc=0,nHeat=0;
+
+  // NIFC named incidents (US)
   for(const {u} of nifcUrls){
     try{
       const r=await fetch(u);if(!r.ok)continue;
@@ -562,25 +583,40 @@ async function loadFires(){
     }catch(e){console.warn("NIFC fetch failed:",e);}
   }
 
-  // FIRMS VIIRS satellite detections (3 satellites, 375 m, NRT)
+  // BC Wildfire Service named incidents
+  try{
+    const r=await fetch(bcUrl);
+    if(r.ok){
+      const gj=await r.json();
+      if(gj.features){for(const f of gj.features){
+        const [lon,lat]=f.geometry.coordinates;
+        const ha=f.properties.CURRENT_SIZE||0;
+        const sz=Math.max(6,Math.min(18,Math.sqrt(ha*2.471/50)));
+        L.circleMarker([lat,lon],{radius:sz,fillColor:"#ff4500",color:"#8b0000",weight:2,fillOpacity:.85})
+          .bindPopup(bcFirePopup(f.properties)).on("click",e=>{if(e.originalEvent)e.originalEvent._fireMarker=true;hideTip();}).addTo(fireGroup);
+        nBc++;
+      }}
+    }
+  }catch(e){console.warn("BCWS fetch failed:",e);}
+
+  // FIRMS VIIRS satellite detections — full map coverage
   for(const u of firmsUrls){
     try{
       const r=await fetch(u);if(!r.ok){console.warn("FIRMS "+r.status);continue;}
       const rows=parseFirmsCSV(await r.text());
       for(const p of rows){
         if(!isFinite(p.latitude))continue;
-        const dLa=(p.latitude-BYRDS_LAT)*69.0,dLo=(p.longitude-BYRDS_LON)*69.0*Math.cos(BYRDS_LAT*Math.PI/180);
-        if(dLa*dLa+dLo*dLo>FIRMS_RADIUS_MI*FIRMS_RADIUS_MI)continue;
-        const col=p.confidence==="h"?"#ff2200":p.confidence==="n"?"#ff6600":"#ffaa00";
-        L.circleMarker([p.latitude,p.longitude],{radius:3.5,fillColor:col,color:col,weight:0,fillOpacity:.7})
-          .bindPopup(heatPopup(p)).on("click",e=>{if(e.originalEvent)e.originalEvent._fireMarker=true;hideTip();}).addTo(fireGroup);
+        if(p.confidence==="l")continue;
+        const col=p.confidence==="h"?"#ff2200":"#ff6600";
+        L.circleMarker([p.latitude,p.longitude],{radius:3.5,fillColor:col,color:col,weight:0,fillOpacity:.7,renderer:fireCanvas,interactive:false})
+          .addTo(fireGroup);
         nHeat++;
       }
     }catch(e){console.warn("FIRMS fetch failed:",e);}
   }
 
   fireLoaded=true;
-  console.log(`Fires loaded: ${nInc} incidents, ${nHeat} VIIRS detections`);
+  console.log(`Fires loaded: ${nInc} NIFC + ${nBc} BC incidents, ${nHeat} VIIRS detections`);
 }
 
 $("fireTgl").onclick=()=>{
